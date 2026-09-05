@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trainee Upload</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header { margin-bottom: 30px; text-align: center; }
+        .header h1 { font-size: 28px; color: #111827; margin-bottom: 8px; }
+        .header p { color: #6b7280; font-size: 16px; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 30px; }
+        .form-group { margin-bottom: 20px; }
+        .label { display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px; }
+        input[type="text"] { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
+        input[type="text"]:focus { outline: none; ring: 2px; ring-color: #3b82f6; border-color: #3b82f6; }
+        .radio-group { display: flex; gap: 20px; }
+        .radio-label { display: flex; align-items: center; cursor: pointer; }
+        input[type="radio"] { margin-right: 8px; }
+        .upload-area { border: 2px dashed #d1d5db; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 20px; }
+        .upload-area:hover { border-color: #60a5fa; background: #f0f9ff; }
+        .upload-area.dragover { border-color: #3b82f6; background: #eff6ff; }
+        .upload-icon { font-size: 32px; margin-bottom: 12px; }
+        .upload-text { color: #111827; font-weight: 500; margin-bottom: 4px; }
+        .upload-subtext { color: #6b7280; font-size: 14px; }
+        input[type="file"] { display: none; }
+        .files-list { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 15px; margin-bottom: 20px; display: none; }
+        .files-list.show { display: block; }
+        .file-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px; }
+        .file-name { color: #374151; }
+        .file-size { color: #9ca3af; }
+        .progress-bar { width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-bottom: 20px; display: none; }
+        .progress-bar.show { display: block; }
+        .progress-fill { height: 100%; background: #3b82f6; width: 0%; transition: width 0.3s; }
+        .message { padding: 12px 16px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; display: none; }
+        .message.show { display: block; }
+        .message.success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .message.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        button { width: 100%; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 500; cursor: pointer; font-size: 16px; transition: background 0.3s; }
+        button:hover:not(:disabled) { background: #2563eb; }
+        button:disabled { background: #d1d5db; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Interview & Appointment Upload</h1>
+            <p>Upload your training materials directly to the team folder</p>
+        </div>
+        
+        <div class="card">
+            <div class="message" id="message"></div>
+            
+            <div class="form-group">
+                <label class="label">Your Name</label>
+                <input type="text" id="traineeNameInput" placeholder="Enter your name">
+            </div>
+            
+            <div class="form-group">
+                <label class="label">Upload Type</label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="uploadType" value="Interview"> Interview
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="uploadType" value="Appointment"> Appointment
+                    </label>
+                </div>
+            </div>
+            
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Drag files here or click to select</div>
+                <div class="upload-subtext">Video (MP4, MOV), Audio (MP3, WAV), PDF, or Documents</div>
+                <input type="file" id="fileInput" multiple>
+            </div>
+            
+            <div class="files-list" id="filesList"></div>
+            
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <button id="uploadBtn" onclick="handleUpload()">Upload to Training Folder</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/.netlify/functions/upload';
+        const ALLOWED_TYPES = ['video/mp4', 'video/quicktime', 'audio/mpeg', 'audio/wav', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+        
+        let selectedFiles = [];
+
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const filesList = document.getElementById('filesList');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const messageDiv = document.getElementById('message');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', (e) => { e.preventDefault(); uploadArea.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).filter(file => {
+                if (!ALLOWED_TYPES.includes(file.type)) {
+                    alert(`${file.name} is not supported`);
+                    return false;
+                }
+                return true;
+            });
+            updateFilesList();
+        }
+
+        function updateFilesList() {
+            if (selectedFiles.length === 0) {
+                filesList.classList.remove('show');
+                return;
+            }
+            filesList.classList.add('show');
+            filesList.innerHTML = '<div style="font-weight: 500; margin-bottom: 10px;">Selected Files (' + selectedFiles.length + '):</div>' + 
+                selectedFiles.map(f => `<div class="file-item"><span class="file-name">${f.name}</span><span class="file-size">${(f.size / 1024 / 1024).toFixed(2)} MB</span></div>`).join('');
+        }
+
+        async function handleUpload() {
+            const name = document.getElementById('traineeNameInput').value.trim();
+            const type = document.querySelector('input[name="uploadType"]:checked')?.value;
+
+            if (!name) { showMessage('Please enter your name', 'error'); return; }
+            if (!type) { showMessage('Please select interview or appointment', 'error'); return; }
+            if (!selectedFiles.length) { showMessage('Please select files', 'error'); return; }
+
+            document.getElementById('uploadBtn').disabled = true;
+            progressBar.classList.add('show');
+            let uploadedCount = 0;
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                try {
+                    const reader = new FileReader();
+                    const fileData = await new Promise((resolve, reject) => {
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+
+                    const response = await fetch(API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filename: file.name, fileData, traineeInfo: { name, type } })
+                    });
+
+                    if (response.ok) uploadedCount++;
+                } catch (err) {
+                    console.error(err);
+                }
+                progressFill.style.width = ((i + 1) / selectedFiles.length * 100) + '%';
+            }
+
+            progressBar.classList.remove('show');
+            document.getElementById('uploadBtn').disabled = false;
+            if (uploadedCount > 0) {
+                showMessage(`${uploadedCount} file(s) uploaded successfully!`, 'success');
+                selectedFiles = [];
+                updateFilesList();
+                document.getElementById('traineeNameInput').value = '';
+                document.querySelector('input[name="uploadType"]').checked = false;
+            } else {
+                showMessage('Upload failed', 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = 'message show ' + type;
+            setTimeout(() => messageDiv.classList.remove('show'), 5000);
+        }
+    </script>
+</body>
+</html>
