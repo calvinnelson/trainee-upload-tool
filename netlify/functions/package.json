@@ -1,0 +1,8 @@
+{
+  "name": "trainee-upload-tool",
+  "version": "1.0.0",
+  "description": "GFI Trainee Upload Tool",
+  "dependencies": {
+    "googleapis": "^118.0.0"
+  }
+}
